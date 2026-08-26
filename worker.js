@@ -1,20 +1,18 @@
-// Cloudflare Worker - خادم Gemini لمسابقة الذكاء
+// =========================================================
+// مسابقة الذكاء - Cloudflare Worker
+// =========================================================
+//
+// يقوم Gemini بإنشاء 20 سؤالًا في طلب واحد:
+// 10 سهل + 10 متوسط
 //
 // ضع GEMINI_API_KEY في Cloudflare Worker Secrets.
 // لا تضع المفتاح داخل GitHub أو app.js.
-//
-// النشر:
-//   npx wrangler secret put GEMINI_API_KEY
-//   npx wrangler deploy
-//
-// بعد النشر ضع رابط الـ Worker في API_BASE_URL داخل app.js.
+// =========================================================
 
 const MODEL = "gemini-3.6-flash";
-const QUESTIONS_PER_LEVEL = 10;
 
-// =========================================================
-// أنواع الأسئلة
-// =========================================================
+const QUESTIONS_PER_LEVEL = 10;
+const TOTAL_QUESTIONS = 20;
 
 const QUESTION_TYPES = [
   "منطق واستنتاج",
@@ -72,15 +70,6 @@ function jsonResponse(data, status = 200) {
 
 
 // =========================================================
-// انتظار
-// =========================================================
-
-function sleep(ms) {
-  return new Promise(resolve => setTimeout(resolve, ms));
-}
-
-
-// =========================================================
 // Normalize
 // =========================================================
 
@@ -93,71 +82,116 @@ function normalize(text) {
 
 
 // =========================================================
+// اختيار أنواع الأسئلة
+// =========================================================
+
+function selectQuestionTypes() {
+
+  return [...QUESTION_TYPES]
+    .sort(() => Math.random() - 0.5)
+    .slice(0, TOTAL_QUESTIONS);
+}
+
+
+// =========================================================
 // بناء Prompt
 // =========================================================
 
-function buildPrompt(level, previousQuestions) {
+function buildPrompt() {
 
-  const selected = [...QUESTION_TYPES]
-    .sort(() => Math.random() - 0.5)
-    .slice(0, QUESTIONS_PER_LEVEL);
+  const selected =
+    selectQuestionTypes();
 
-  const typesText = selected
-    .map((x, i) => `${i + 1}. ${x}`)
-    .join("\n");
-
-  const previousText = previousQuestions?.length
-    ? `
-
-هذه أسئلة سبق استخدامها في المسابقة.
-
-ممنوع تكرارها أو إعادة نفس فكرتها أو قالبها:
-
-${previousQuestions
-  .map(q => `- ${q}`)
-  .join("\n")}
-`
-    : "";
+  const typesText =
+    selected
+      .map((x, i) => `${i + 1}. ${x}`)
+      .join("\n");
 
   return `
 أنت مصمم اختبار ذكاء وقدرات عقلية احترافي.
 
-أنشئ بالضبط 10 أسئلة جديدة للمستوى:
-${level.difficulty}
+أنشئ بالضبط:
+
+10 أسئلة للمستوى "سهل"
+و
+10 أسئلة للمستوى "متوسط"
+
+أي 20 سؤالًا إجمالًا.
 
 المسابقة باللغة العربية.
 
-قواعد عامة:
-- الأسئلة يجب أن تقيس التفكير وليس المعلومات العامة.
-- ممنوع الاعتماد على الدول أو الشعوب أو السياسة أو الدين أو التاريخ أو الجغرافيا أو المشاهير أو معلومات تحتاج معرفة مسبقة.
+==================================================
+قواعد عامة
+==================================================
+
+- الأسئلة تقيس التفكير والمنطق وليس المعلومات العامة.
+- ممنوع الاعتماد على الدول أو الشعوب أو السياسة أو الدين أو التاريخ أو الجغرافيا أو المشاهير.
+- لا تحتاج الأسئلة إلى معرفة مسبقة.
 - الأسئلة عادلة لأي شخص في العالم.
-
-مستوى الصعوبة:
-- إذا كان المستوى "سهل": الحل مباشر ويحتاج تفكيرًا بسيطًا.
-- إذا كان المستوى "متوسط": يحتاج السؤال خطوتين أو أكثر من التفكير، أو ملاحظة علاقة غير مباشرة، لكن لا تجعله معقدًا جدًا.
-
-التنوع:
-استخدم الأنواع التالية مرة واحدة فقط:
-${typesText}
-
-لا تستخدم نفس نوع التفكير مرتين.
-لا تنشئ 10 أسئلة بنفس القالب.
-ممنوع تغيير الأسماء أو الأرقام فقط في نفس القالب.
-كل سؤال يجب أن تكون له طريقة تفكير مختلفة.
-
-الإجابات:
-- 4 إجابات مختلفة.
-- إجابة واحدة صحيحة فقط.
-- يجب أن تكون الإجابة الصحيحة موجودة حرفيًا داخل قائمة الإجابات.
-- لا تجعل إجابتين صحيحتين.
-
-اللغة:
 - استخدم العربية الواضحة والبسيطة.
-- لا تستخدم الرموز التعبيرية داخل السؤال.
+- لا تستخدم الرموز التعبيرية داخل الأسئلة.
 - لا تستخدم أسماء أشخاص حقيقيين.
 - لا تكتب شرح الحل.
 
-${previousText}
+==================================================
+المستوى السهل
+==================================================
+
+أنشئ 10 أسئلة سهلة.
+
+الحل يجب أن يكون مباشرًا ويحتاج تفكيرًا بسيطًا.
+
+لا تجعلها تافهة جدًا.
+
+==================================================
+المستوى المتوسط
+==================================================
+
+أنشئ 10 أسئلة متوسطة.
+
+يجب أن تحتاج إلى خطوتين أو أكثر من التفكير،
+أو ملاحظة علاقة غير مباشرة.
+
+لكن لا تجعلها معقدة جدًا.
+
+==================================================
+التنوع
+==================================================
+
+استخدم أنواع التفكير التالية.
+
+${typesText}
+
+لا تستخدم نفس نوع التفكير أكثر من مرة قدر الإمكان.
+
+ممنوع إنشاء 20 سؤالًا بنفس القالب.
+
+ممنوع تغيير الأسماء أو الأرقام فقط في نفس السؤال.
+
+كل سؤال يجب أن يكون مختلفًا فعلًا عن الآخر.
+
+==================================================
+الإجابات
+==================================================
+
+كل سؤال يجب أن يحتوي على:
+
+- 4 إجابات مختلفة.
+- إجابة واحدة صحيحة فقط.
+- الإجابة الصحيحة يجب أن تكون موجودة حرفيًا داخل قائمة الإجابات.
+- لا تجعل إجابتين صحيحتين.
+
+==================================================
+مهم جدًا
+==================================================
+
+يجب أن يكون عدد الأسئلة:
+
+easy = 10
+
+medium = 10
+
+ولا يجوز أن يكون أقل أو أكثر.
 
 أعد JSON فقط حسب المخطط المطلوب.
 `;
@@ -169,211 +203,254 @@ ${previousText}
 // =========================================================
 
 function schema() {
-  return {
+
+  const questionSchema = {
     type: "OBJECT",
+
     properties: {
-      questions: {
+
+      type: {
+        type: "STRING"
+      },
+
+      question: {
+        type: "STRING"
+      },
+
+      answers: {
         type: "ARRAY",
-        minItems: QUESTIONS_PER_LEVEL,
-        maxItems: QUESTIONS_PER_LEVEL,
+
+        minItems: 4,
+        maxItems: 4,
+
         items: {
-          type: "OBJECT",
-          properties: {
-            type: {
-              type: "STRING"
-            },
-
-            question: {
-              type: "STRING"
-            },
-
-            answers: {
-              type: "ARRAY",
-              minItems: 4,
-              maxItems: 4,
-              items: {
-                type: "STRING"
-              }
-            },
-
-            correct_answer: {
-              type: "STRING"
-            }
-          },
-
-          required: [
-            "type",
-            "question",
-            "answers",
-            "correct_answer"
-          ]
+          type: "STRING"
         }
+      },
+
+      correct_answer: {
+        type: "STRING"
       }
     },
 
     required: [
-      "questions"
+      "type",
+      "question",
+      "answers",
+      "correct_answer"
+    ]
+  };
+
+
+  return {
+
+    type: "OBJECT",
+
+    properties: {
+
+      easy: {
+        type: "ARRAY",
+
+        minItems: 10,
+        maxItems: 10,
+
+        items: questionSchema
+      },
+
+      medium: {
+        type: "ARRAY",
+
+        minItems: 10,
+        maxItems: 10,
+
+        items: questionSchema
+      }
+    },
+
+    required: [
+      "easy",
+      "medium"
     ]
   };
 }
 
 
 // =========================================================
-// التحقق من الأسئلة
+// التحقق من سؤال واحد
 // =========================================================
 
-function validate(data) {
+function validateQuestion(q, index, levelName) {
 
   if (
-    !data ||
-    !Array.isArray(data.questions) ||
-    data.questions.length !== QUESTIONS_PER_LEVEL
+    !q ||
+    typeof q.question !== "string" ||
+    !Array.isArray(q.answers) ||
+    q.answers.length !== 4 ||
+    typeof q.correct_answer !== "string"
   ) {
+
     throw new Error(
-      "Gemini لم يُرجع 10 أسئلة بالضبط."
+      `السؤال ${levelName} رقم ${index + 1} غير صحيح.`
     );
   }
 
-  const seen = new Set();
 
-  for (let i = 0; i < data.questions.length; i++) {
+  const answers =
+    q.answers.map(String);
 
-    const q = data.questions[i];
 
-    if (
-      !q ||
-      typeof q.question !== "string" ||
-      !Array.isArray(q.answers) ||
-      q.answers.length !== 4 ||
-      typeof q.correct_answer !== "string"
-    ) {
-      throw new Error(
-        `تنسيق السؤال رقم ${i + 1} غير صحيح.`
-      );
-    }
-
-    const answers = q.answers.map(String);
-
-    const uniqueAnswers = new Set(
+  const unique =
+    new Set(
       answers.map(normalize)
     );
 
-    if (uniqueAnswers.size !== 4) {
-      throw new Error(
-        `يوجد تكرار في إجابات السؤال رقم ${i + 1}.`
-      );
-    }
 
-    const correctExists = answers.some(
+  if (unique.size !== 4) {
+
+    throw new Error(
+      `السؤال ${levelName} رقم ${index + 1} يحتوي إجابات مكررة.`
+    );
+  }
+
+
+  const correctExists =
+    answers.some(
       answer =>
         normalize(answer) ===
         normalize(q.correct_answer)
     );
 
-    if (!correctExists) {
-      throw new Error(
-        `الإجابة الصحيحة للسؤال رقم ${i + 1} غير موجودة ضمن الإجابات.`
-      );
-    }
 
-    const questionKey =
-      normalize(q.question);
+  if (!correctExists) {
 
-    if (seen.has(questionKey)) {
-      throw new Error(
-        "يوجد سؤال مكرر داخل المجموعة."
-      );
-    }
-
-    seen.add(questionKey);
+    throw new Error(
+      `الإجابة الصحيحة للسؤال ${levelName} رقم ${index + 1} غير موجودة ضمن الإجابات.`
+    );
   }
-
-  return data.questions;
 }
 
 
 // =========================================================
-// استخراج مدة الانتظار من رد Gemini
+// التحقق من المجموعة
 // =========================================================
 
-function getRetryDelayMs(text) {
-
-  try {
-
-    const data = JSON.parse(text);
-
-    const details =
-      data?.error?.details;
-
-    if (!Array.isArray(details)) {
-      return null;
-    }
-
-    for (const detail of details) {
-
-      if (
-        detail?.["@type"] ===
-        "type.googleapis.com/google.rpc.RetryInfo"
-      ) {
-
-        const retryDelay =
-          detail.retryDelay;
-
-        if (typeof retryDelay === "string") {
-
-          const match =
-            retryDelay.match(
-              /^(\d+(?:\.\d+)?)s$/
-            );
-
-          if (match) {
-
-            const seconds =
-              Number(match[1]);
-
-            if (
-              Number.isFinite(seconds) &&
-              seconds >= 0
-            ) {
-              return Math.ceil(
-                seconds * 1000
-              );
-            }
-          }
-        }
-      }
-    }
-
-  } catch (_) {}
-
-  return null;
-}
-
-
-// =========================================================
-// استخراج رسالة Gemini
-// =========================================================
-
-function getGeminiErrorMessage(
-  status,
-  text
+function validateLevelQuestions(
+  questions,
+  levelName
 ) {
 
-  try {
+  if (
+    !Array.isArray(questions) ||
+    questions.length !== QUESTIONS_PER_LEVEL
+  ) {
 
-    const data =
-      JSON.parse(text);
+    throw new Error(
+      `Gemini لم يُرجع 10 أسئلة للمستوى ${levelName}.`
+    );
+  }
 
-    const message =
-      data?.error?.message;
 
-    if (message) {
-      return message;
+  const seen =
+    new Set();
+
+
+  for (
+    let i = 0;
+    i < questions.length;
+    i++
+  ) {
+
+    const q =
+      questions[i];
+
+
+    validateQuestion(
+      q,
+      i,
+      levelName
+    );
+
+
+    const key =
+      normalize(q.question);
+
+
+    if (seen.has(key)) {
+
+      throw new Error(
+        `يوجد سؤال مكرر داخل المستوى ${levelName}.`
+      );
     }
 
-  } catch (_) {}
 
-  return `HTTP ${status}: ${text.slice(0, 800)}`;
+    seen.add(key);
+  }
+
+
+  return questions;
+}
+
+
+// =========================================================
+// التحقق من المستويين
+// =========================================================
+
+function validateResult(data) {
+
+  if (!data) {
+
+    throw new Error(
+      "Gemini لم يُرجع بيانات."
+    );
+  }
+
+
+  const easy =
+    validateLevelQuestions(
+      data.easy,
+      "السهل"
+    );
+
+
+  const medium =
+    validateLevelQuestions(
+      data.medium,
+      "المتوسط"
+    );
+
+
+  const allQuestions = [
+    ...easy,
+    ...medium
+  ];
+
+
+  const allSeen =
+    new Set();
+
+
+  for (const q of allQuestions) {
+
+    const key =
+      normalize(q.question);
+
+
+    if (allSeen.has(key)) {
+
+      throw new Error(
+        "Gemini أنشأ سؤالًا مكررًا بين المستويين."
+      );
+    }
+
+
+    allSeen.add(key);
+  }
+
+
+  return {
+    easy,
+    medium
+  };
 }
 
 
@@ -381,17 +458,22 @@ function getGeminiErrorMessage(
 // الاتصال بـ Gemini
 // =========================================================
 
-async function callGemini(env, prompt) {
+async function callGemini(
+  env,
+  prompt
+) {
 
   if (!env.GEMINI_API_KEY) {
 
     throw new Error(
-      "لم يتم إعداد GEMINI_API_KEY في الخادم."
+      "GEMINI_API_KEY غير موجود في Cloudflare Secrets."
     );
   }
 
+
   const url =
     `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`;
+
 
   const body = {
 
@@ -411,37 +493,58 @@ async function callGemini(env, prompt) {
         "application/json",
 
       responseSchema:
-        schema()
+        schema(),
+
+      temperature:
+        0.9,
+
+      maxOutputTokens:
+        12000
     }
   };
 
 
-  // =======================================================
-  // محاولات الاتصال
-  // =======================================================
+  // محاولة أولى
+  let response =
+    await fetch(
+      url,
+      {
+        method: "POST",
 
-  const fallbackDelays = [
-    5000,
-    10000,
-    20000,
-    40000,
-    60000
-  ];
+        headers: {
+          "Content-Type":
+            "application/json",
 
-  let lastError =
-    "خطأ غير معروف من Gemini.";
+          "x-goog-api-key":
+            env.GEMINI_API_KEY
+        },
 
-  for (
-    let attempt = 0;
-    attempt <= fallbackDelays.length;
-    attempt++
+        body:
+          JSON.stringify(body)
+      }
+    );
+
+
+  let text =
+    await response.text();
+
+
+  // ======================================================
+  // إذا كان 429، ننتظر 8 ثوانٍ فقط ثم نحاول مرة ثانية
+  // ======================================================
+
+  if (
+    response.status === 429
   ) {
 
-    let response;
+    await new Promise(
+      resolve =>
+        setTimeout(resolve, 8000)
+    );
 
-    try {
 
-      response = await fetch(
+    response =
+      await fetch(
         url,
         {
           method: "POST",
@@ -459,157 +562,134 @@ async function callGemini(env, prompt) {
         }
       );
 
-    } catch (networkError) {
 
-      lastError =
-        networkError?.message ||
-        "تعذر الاتصال بخدمة Gemini.";
-
-      if (
-        attempt <
-        fallbackDelays.length
-      ) {
-
-        await sleep(
-          fallbackDelays[attempt]
-        );
-
-        continue;
-      }
-
-      throw new Error(
-        `تعذر الاتصال بـ Gemini بعد عدة محاولات.\n${lastError}`
-      );
-    }
-
-
-    const text =
+    text =
       await response.text();
-
-
-    // =====================================================
-    // نجاح
-    // =====================================================
-
-    if (response.ok) {
-
-      let result;
-
-      try {
-
-        result =
-          JSON.parse(text);
-
-      } catch (_) {
-
-        throw new Error(
-          "Gemini أعاد استجابة غير صالحة."
-        );
-      }
-
-
-      const output =
-        result
-          ?.candidates?.[0]
-          ?.content?.parts?.[0]
-          ?.text;
-
-
-      if (!output) {
-
-        throw new Error(
-          "Gemini لم يُرجع محتوى."
-        );
-      }
-
-
-      try {
-
-        return JSON.parse(output);
-
-      } catch (_) {
-
-        throw new Error(
-          "Gemini أعاد JSON غير صالح."
-        );
-      }
-    }
-
-
-    // =====================================================
-    // الخطأ
-    // =====================================================
-
-    lastError =
-      getGeminiErrorMessage(
-        response.status,
-        text
-      );
-
-
-    // =====================================================
-    // أخطاء مؤقتة:
-    // 429 Rate Limit
-    // 503 Service Unavailable
-    // 500 Server Error
-    // =====================================================
-
-    const retryable =
-      response.status === 429 ||
-      response.status === 500 ||
-      response.status === 502 ||
-      response.status === 503 ||
-      response.status === 504;
-
-
-    if (!retryable) {
-
-      throw new Error(
-        `Gemini API (${response.status}): ${lastError}`
-      );
-    }
-
-
-    // =====================================================
-    // انتهت المحاولات
-    // =====================================================
-
-    if (
-      attempt >=
-      fallbackDelays.length
-    ) {
-      break;
-    }
-
-
-    // =====================================================
-    // نحاول قراءة RetryInfo من Gemini
-    // =====================================================
-
-    const retryDelay =
-      getRetryDelayMs(text);
-
-
-    const delay =
-      retryDelay !== null
-        ? Math.max(
-            retryDelay,
-            fallbackDelays[attempt]
-          )
-        : fallbackDelays[attempt];
-
-
-    // =====================================================
-    // انتظار قبل المحاولة التالية
-    // =====================================================
-
-    await sleep(delay);
   }
 
 
-  throw new Error(
-    `تعذر الحصول على الأسئلة من Gemini بعد عدة محاولات.\n\n${lastError}`
-  );
+  // ======================================================
+  // أي خطأ من Gemini
+  // ======================================================
+
+  if (!response.ok) {
+
+    let errorMessage =
+      `Gemini API HTTP ${response.status}`;
+
+
+    try {
+
+      const errorData =
+        JSON.parse(text);
+
+
+      if (
+        errorData?.error?.message
+      ) {
+
+        errorMessage =
+          errorData.error.message;
+      }
+
+    } catch (_) {
+      // تجاهل JSON غير الصالح
+    }
+
+
+    if (
+      response.status === 429
+    ) {
+
+      throw new Error(
+        "Gemini مشغول أو تم تجاوز حد الطلبات مؤقتًا. حاول مرة أخرى بعد قليل."
+      );
+    }
+
+
+    if (
+      response.status === 401 ||
+      response.status === 403
+    ) {
+
+      throw new Error(
+        "مفتاح Gemini غير صالح أو ليس لديه صلاحية استخدام API."
+      );
+    }
+
+
+    throw new Error(
+      errorMessage
+    );
+  }
+
+
+  // ======================================================
+  // قراءة الاستجابة
+  // ======================================================
+
+  let result;
+
+
+  try {
+
+    result =
+      JSON.parse(text);
+
+  } catch (_) {
+
+    throw new Error(
+      "Gemini أعاد استجابة غير صالحة."
+    );
+  }
+
+
+  const candidate =
+    result?.candidates?.[0];
+
+
+  if (!candidate) {
+
+    const blockReason =
+      result?.promptFeedback?.blockReason;
+
+
+    if (blockReason) {
+
+      throw new Error(
+        `تم رفض طلب Gemini. السبب: ${blockReason}`
+      );
+    }
+
+
+    throw new Error(
+      "Gemini لم يُرجع نتيجة."
+    );
+  }
+
+
+  const output =
+    candidate?.content?.parts?.[0]?.text;
+
+
+  if (!output) {
+
+    throw new Error(
+      "Gemini لم يُرجع محتوى."
+    );
+  }
+
+
+  try {
+
+    return JSON.parse(output);
+
+  } catch (_) {
+
+    throw new Error(
+      "Gemini أعاد JSON غير صالح."
+    );
+  }
 }
 
 
@@ -619,15 +699,14 @@ async function callGemini(env, prompt) {
 
 export default {
 
-  async fetch(request, env) {
+  async fetch(
+    request,
+    env
+  ) {
 
-    // =====================================================
     // OPTIONS
-    // =====================================================
-
     if (
-      request.method ===
-      "OPTIONS"
+      request.method === "OPTIONS"
     ) {
 
       return new Response(
@@ -644,15 +723,14 @@ export default {
       new URL(request.url);
 
 
-    // =====================================================
-    // التحقق من الرابط
-    // =====================================================
+    // ====================================================
+    // التحقق من المسار
+    // ====================================================
 
     if (
       url.pathname !==
         "/api/questions" ||
-      request.method !==
-        "POST"
+      request.method !== "POST"
     ) {
 
       return jsonResponse(
@@ -665,62 +743,41 @@ export default {
     }
 
 
-    // =====================================================
-    // التحقق من Secret
-    // =====================================================
+    // ====================================================
+    // التحقق من المفتاح
+    // ====================================================
 
-    if (!env.GEMINI_API_KEY) {
+    if (
+      !env.GEMINI_API_KEY
+    ) {
 
       return jsonResponse(
         {
           error:
-            "لم يتم إعداد GEMINI_API_KEY في الخادم."
+            "GEMINI_API_KEY غير موجود في Cloudflare Secrets."
         },
         500
       );
     }
 
 
-    // =====================================================
-    // تشغيل الطلب
-    // =====================================================
-
     try {
 
-      const body =
+      // نقرأ Body حتى لو لم نستخدمه حاليًا
+      try {
         await request.json();
+      } catch (_) {
+        // لا مشكلة
+      }
 
 
-      const level =
-        body.level ||
-        {
-          difficulty:
-            "سهل"
-        };
-
-
-      const previousQuestions =
-        Array.isArray(
-          body.previousQuestions
-        )
-          ? body.previousQuestions.slice(-30)
-          : [];
-
-
-      // ===================================================
-      // بناء السؤال
-      // ===================================================
+      // ==================================================
+      // طلب Gemini واحد فقط
+      // ==================================================
 
       const prompt =
-        buildPrompt(
-          level,
-          previousQuestions
-        );
+        buildPrompt();
 
-
-      // ===================================================
-      // الاتصال بـ Gemini
-      // ===================================================
 
       const result =
         await callGemini(
@@ -729,38 +786,71 @@ export default {
         );
 
 
-      // ===================================================
+      // ==================================================
       // التحقق
-      // ===================================================
+      // ==================================================
 
       const questions =
-        validate(result);
+        validateResult(result);
 
 
-      // ===================================================
-      // النجاح
-      // ===================================================
+      // ==================================================
+      // خلط الإجابات والأسئلة
+      // ==================================================
+
+      for (
+        const level
+        of ["easy", "medium"]
+      ) {
+
+        questions[level].sort(
+          () =>
+            Math.random() - 0.5
+        );
+
+
+        for (
+          const q
+          of questions[level]
+        ) {
+
+          q.answers.sort(
+            () =>
+              Math.random() - 0.5
+          );
+        }
+      }
+
+
+      // ==================================================
+      // إرسال النتيجة
+      // ==================================================
 
       return jsonResponse(
         {
-          questions
-        },
-        200
+          ok: true,
+          easy:
+            questions.easy,
+          medium:
+            questions.medium
+        }
       );
 
     } catch (error) {
 
       console.error(
-        "Brain Quiz Worker Error:",
+        "Worker error:",
         error
       );
 
 
       return jsonResponse(
         {
+          ok: false,
+
           error:
             error?.message ||
-            "حدث خطأ غير معروف."
+            "حدث خطأ غير معروف في الخادم."
         },
         500
       );
