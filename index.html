@@ -1,1 +1,41 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#ffffff">
+  <title>مسابقة الذكاء 🧠</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="app">
+    <header class="topbar">
+      <button id="closeBtn" class="close" aria-label="إغلاق">×</button>
+      <div class="top-title">مسابقة الذكاء</div>
+    </header>
 
+    <section class="game">
+      <h1>مسابقة الذكاء 🧠</h1>
+
+      <div id="levelLabel" class="level">🟢 المستوى السهل</div>
+      <div id="progressLabel" class="progress">10 أسئلة</div>
+
+      <div id="questionLabel" class="question">اضغط «ابدأ المسابقة»</div>
+
+      <div id="answers" class="answers">
+        <button class="answer" data-index="0"></button>
+        <button class="answer" data-index="1"></button>
+        <button class="answer" data-index="2"></button>
+        <button class="answer" data-index="3"></button>
+      </div>
+
+      <div id="resultLabel" class="result"></div>
+      <div id="scoreLabel" class="score">النقاط: 0</div>
+
+      <button id="startBtn" class="start">🧠 ابدأ المسابقة</button>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
