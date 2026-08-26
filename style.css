@@ -1,0 +1,172 @@
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  min-height: 100%;
+  background: #fff;
+  font-family: -apple-system, BlinkMacSystemFont, "Arial", sans-serif;
+  color: #111;
+}
+
+body {
+  min-height: 100vh;
+}
+
+button {
+  font: inherit;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.app {
+  width: 100%;
+  min-height: 100vh;
+  background: #fff;
+}
+
+.topbar {
+  height: 74px;
+  border-bottom: 1px solid #ddd;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.top-title {
+  font-size: 22px;
+  font-weight: 800;
+}
+
+.close {
+  position: absolute;
+  left: 24px;
+  top: 11px;
+  border: 0;
+  background: transparent;
+  color: #1677ff;
+  font-size: 58px;
+  line-height: 1;
+  font-weight: 300;
+  cursor: pointer;
+}
+
+.game {
+  width: min(100%, 620px);
+  margin: 0 auto;
+  padding: 48px 24px 36px;
+  text-align: center;
+}
+
+h1 {
+  margin: 0 0 38px;
+  font-size: clamp(34px, 8vw, 52px);
+  line-height: 1.15;
+  font-weight: 900;
+}
+
+.level {
+  font-size: clamp(25px, 6vw, 35px);
+  font-weight: 800;
+  margin-bottom: 22px;
+}
+
+.progress {
+  font-size: 23px;
+  font-weight: 800;
+  min-height: 34px;
+  margin-bottom: 22px;
+}
+
+.question {
+  min-height: 155px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: clamp(22px, 5.4vw, 30px);
+  line-height: 1.65;
+  font-weight: 800;
+  margin-bottom: 18px;
+  white-space: pre-line;
+}
+
+.answers {
+  display: grid;
+  gap: 12px;
+  margin-top: 4px;
+}
+
+.answer {
+  width: 100%;
+  min-height: 58px;
+  padding: 10px 16px;
+  border: 0;
+  border-radius: 13px;
+  background: #eeeeee;
+  color: #222;
+  font-size: 20px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: transform .08s ease, opacity .15s ease, background .15s ease;
+}
+
+.answer:active {
+  transform: scale(.985);
+}
+
+.answer:disabled {
+  cursor: default;
+}
+
+.result {
+  min-height: 70px;
+  margin-top: 18px;
+  font-size: 20px;
+  line-height: 1.5;
+  font-weight: 800;
+  white-space: pre-line;
+}
+
+.score {
+  font-size: 21px;
+  font-weight: 900;
+  min-height: 34px;
+  margin: 6px 0 18px;
+}
+
+.start {
+  width: 100%;
+  min-height: 62px;
+  border: 0;
+  border-radius: 13px;
+  background: #4caf50;
+  color: #fff;
+  font-size: 21px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.start:disabled {
+  opacity: .65;
+  cursor: default;
+}
+
+.hidden {
+  display: none !important;
+}
+
+.loading {
+  color: #222;
+}
+
+.error {
+  color: #d50000;
+}
+
+@media (min-width: 700px) {
+  .game {
+    padding-top: 56px;
+  }
+  .question {
+    min-height: 190px;
+  }
+}
