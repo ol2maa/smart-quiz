@@ -5,7 +5,7 @@
 // نسخة GitHub Pages
 // =========================================================
 
-const API_BASE_URL = "https://tight-sky-05ac.kaka10906.workers.dev";
+const API_BASE_URL = "https://brain-quiz-api.kaka10906.workers.dev";
 
 const QUESTIONS_PER_LEVEL = 10;
 const POINTS_PER_QUESTION = 10;
