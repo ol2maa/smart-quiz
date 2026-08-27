@@ -2,17 +2,23 @@
 // مسابقة الذكاء - Cloudflare Worker
 // =========================================================
 //
-// يقوم Gemini بإنشاء 20 سؤالًا في طلب واحد:
+// Gemini ينشئ 20 سؤالًا في طلب واحد:
 // 10 سهل + 10 متوسط
 //
 // ضع GEMINI_API_KEY في Cloudflare Worker Secrets.
 // لا تضع المفتاح داخل GitHub أو app.js.
 // =========================================================
 
+
 const MODEL = "gemini-3.6-flash";
 
 const QUESTIONS_PER_LEVEL = 10;
 const TOTAL_QUESTIONS = 20;
+
+
+// =========================================================
+// أنواع الأسئلة
+// =========================================================
 
 const QUESTION_TYPES = [
   "منطق واستنتاج",
@@ -43,6 +49,7 @@ const QUESTION_TYPES = [
 // =========================================================
 
 function corsHeaders() {
+
   return {
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Headers": "Content-Type",
@@ -56,12 +63,16 @@ function corsHeaders() {
 // =========================================================
 
 function jsonResponse(data, status = 200) {
+
   return new Response(
     JSON.stringify(data),
     {
       status,
+
       headers: {
-        "Content-Type": "application/json; charset=utf-8",
+        "Content-Type":
+          "application/json; charset=utf-8",
+
         ...corsHeaders()
       }
     }
@@ -74,6 +85,7 @@ function jsonResponse(data, status = 200) {
 // =========================================================
 
 function normalize(text) {
+
   return String(text ?? "")
     .trim()
     .toLowerCase()
@@ -107,13 +119,16 @@ function buildPrompt() {
       .map((x, i) => `${i + 1}. ${x}`)
       .join("\n");
 
+
   return `
 أنت مصمم اختبار ذكاء وقدرات عقلية احترافي.
 
 أنشئ بالضبط:
 
 10 أسئلة للمستوى "سهل"
+
 و
+
 10 أسئلة للمستوى "متوسط"
 
 أي 20 سؤالًا إجمالًا.
@@ -132,6 +147,8 @@ function buildPrompt() {
 - لا تستخدم الرموز التعبيرية داخل الأسئلة.
 - لا تستخدم أسماء أشخاص حقيقيين.
 - لا تكتب شرح الحل.
+- لا تجعل السؤال يعتمد على معلومة خارجية.
+- يجب أن يكون لكل سؤال إجابة واحدة صحيحة فقط.
 
 ==================================================
 المستوى السهل
@@ -142,6 +159,8 @@ function buildPrompt() {
 الحل يجب أن يكون مباشرًا ويحتاج تفكيرًا بسيطًا.
 
 لا تجعلها تافهة جدًا.
+
+يجب أن تكون الأسئلة متنوعة فعلًا.
 
 ==================================================
 المستوى المتوسط
@@ -154,11 +173,13 @@ function buildPrompt() {
 
 لكن لا تجعلها معقدة جدًا.
 
+يجب أن تكون أصعب بوضوح من المستوى السهل.
+
 ==================================================
 التنوع
 ==================================================
 
-استخدم أنواع التفكير التالية.
+استخدم أنواع التفكير التالية:
 
 ${typesText}
 
@@ -180,18 +201,21 @@ ${typesText}
 - إجابة واحدة صحيحة فقط.
 - الإجابة الصحيحة يجب أن تكون موجودة حرفيًا داخل قائمة الإجابات.
 - لا تجعل إجابتين صحيحتين.
+- اجعل الإجابات الخاطئة منطقية وليست سخيفة جدًا.
 
 ==================================================
 مهم جدًا
 ==================================================
 
-يجب أن يكون عدد الأسئلة:
+يجب أن يكون الناتج:
 
-easy = 10
+easy = 10 أسئلة بالضبط
 
-medium = 10
+medium = 10 أسئلة بالضبط
 
 ولا يجوز أن يكون أقل أو أكثر.
+
+يجب أن تكون جميع الأسئلة مختلفة.
 
 أعد JSON فقط حسب المخطط المطلوب.
 `;
@@ -205,6 +229,7 @@ medium = 10
 function schema() {
 
   const questionSchema = {
+
     type: "OBJECT",
 
     properties: {
@@ -218,6 +243,7 @@ function schema() {
       },
 
       answers: {
+
         type: "ARRAY",
 
         minItems: 4,
@@ -249,6 +275,7 @@ function schema() {
     properties: {
 
       easy: {
+
         type: "ARRAY",
 
         minItems: 10,
@@ -258,6 +285,7 @@ function schema() {
       },
 
       medium: {
+
         type: "ARRAY",
 
         minItems: 10,
@@ -279,7 +307,11 @@ function schema() {
 // التحقق من سؤال واحد
 // =========================================================
 
-function validateQuestion(q, index, levelName) {
+function validateQuestion(
+  q,
+  index,
+  levelName
+) {
 
   if (
     !q ||
@@ -331,7 +363,7 @@ function validateQuestion(q, index, levelName) {
 
 
 // =========================================================
-// التحقق من المجموعة
+// التحقق من مجموعة أسئلة
 // =========================================================
 
 function validateLevelQuestions(
@@ -392,7 +424,7 @@ function validateLevelQuestions(
 
 
 // =========================================================
-// التحقق من المستويين
+// التحقق من النتيجة كاملة
 // =========================================================
 
 function validateResult(data) {
@@ -478,7 +510,10 @@ async function callGemini(
   const body = {
 
     contents: [
+
       {
+        role: "user",
+
         parts: [
           {
             text: prompt
@@ -486,6 +521,7 @@ async function callGemini(
         ]
       }
     ],
+
 
     generationConfig: {
 
@@ -495,16 +531,16 @@ async function callGemini(
       responseSchema:
         schema(),
 
-      temperature:
-        0.9,
-
       maxOutputTokens:
         12000
     }
   };
 
 
-  // محاولة أولى
+  // ======================================================
+  // طلب واحد فقط إلى Gemini
+  // ======================================================
+
   let response =
     await fetch(
       url,
@@ -512,6 +548,7 @@ async function callGemini(
         method: "POST",
 
         headers: {
+
           "Content-Type":
             "application/json",
 
@@ -530,41 +567,16 @@ async function callGemini(
 
 
   // ======================================================
-  // إذا كان 429، ننتظر 8 ثوانٍ فقط ثم نحاول مرة ثانية
+  // معالجة 429
   // ======================================================
 
   if (
     response.status === 429
   ) {
 
-    await new Promise(
-      resolve =>
-        setTimeout(resolve, 8000)
+    throw new Error(
+      "Gemini مشغول أو تم تجاوز حد الطلبات مؤقتًا. حاول مرة أخرى بعد قليل."
     );
-
-
-    response =
-      await fetch(
-        url,
-        {
-          method: "POST",
-
-          headers: {
-            "Content-Type":
-              "application/json",
-
-            "x-goog-api-key":
-              env.GEMINI_API_KEY
-          },
-
-          body:
-            JSON.stringify(body)
-        }
-      );
-
-
-    text =
-      await response.text();
   }
 
 
@@ -598,16 +610,6 @@ async function callGemini(
 
 
     if (
-      response.status === 429
-    ) {
-
-      throw new Error(
-        "Gemini مشغول أو تم تجاوز حد الطلبات مؤقتًا. حاول مرة أخرى بعد قليل."
-      );
-    }
-
-
-    if (
       response.status === 401 ||
       response.status === 403
     ) {
@@ -625,7 +627,7 @@ async function callGemini(
 
 
   // ======================================================
-  // قراءة الاستجابة
+  // قراءة استجابة Gemini
   // ======================================================
 
   let result;
@@ -704,7 +706,10 @@ export default {
     env
   ) {
 
-    // OPTIONS
+    // ====================================================
+    // OPTIONS / CORS
+    // ====================================================
+
     if (
       request.method === "OPTIONS"
     ) {
@@ -753,6 +758,8 @@ export default {
 
       return jsonResponse(
         {
+          ok: false,
+
           error:
             "GEMINI_API_KEY غير موجود في Cloudflare Secrets."
         },
@@ -763,16 +770,22 @@ export default {
 
     try {
 
-      // نقرأ Body حتى لو لم نستخدمه حاليًا
+      // ==================================================
+      // قراءة الطلب القادم من الموقع
+      // ==================================================
+
       try {
+
         await request.json();
+
       } catch (_) {
+
         // لا مشكلة
       }
 
 
       // ==================================================
-      // طلب Gemini واحد فقط
+      // Gemini ينشئ المستويين معًا
       // ==================================================
 
       const prompt =
@@ -795,7 +808,7 @@ export default {
 
 
       // ==================================================
-      // خلط الإجابات والأسئلة
+      // خلط ترتيب الأسئلة والإجابات
       // ==================================================
 
       for (
@@ -823,14 +836,16 @@ export default {
 
 
       // ==================================================
-      // إرسال النتيجة
+      // إرسال المستويين معًا إلى الموقع
       // ==================================================
 
       return jsonResponse(
         {
           ok: true,
+
           easy:
             questions.easy,
+
           medium:
             questions.medium
         }
