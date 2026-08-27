@@ -5,7 +5,7 @@
 // نسخة GitHub Pages
 // =========================================================
 
-const API_BASE_URL = "https://brain-quiz-api.kaka10906.workers.dev";
+const API_BASE_URL = "https://brain-quiz.kaka10906.workers.dev";
 
 const QUESTIONS_PER_LEVEL = 10;
 const POINTS_PER_QUESTION = 10;
@@ -98,7 +98,7 @@ async function fetchQuestions(level) {
   }
 
   const response = await fetch(
-    `${API_BASE_URL.replace(/\/$/, "")}/api/questions`,
+    `${API_BASE_URL.replace(/\/$/, "")}/generate`,
     {
       method: "POST",
       headers: {
