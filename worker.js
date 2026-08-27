@@ -230,32 +230,32 @@ function schema() {
 
   const questionSchema = {
 
-    type: "OBJECT",
+    type: "object",
 
     properties: {
 
       type: {
-        type: "STRING"
+        type: "string"
       },
 
       question: {
-        type: "STRING"
+        type: "string"
       },
 
       answers: {
 
-        type: "ARRAY",
+        type: "array",
 
         minItems: 4,
         maxItems: 4,
 
         items: {
-          type: "STRING"
+          type: "string"
         }
       },
 
       correct_answer: {
-        type: "STRING"
+        type: "string"
       }
     },
 
@@ -264,19 +264,21 @@ function schema() {
       "question",
       "answers",
       "correct_answer"
-    ]
+    ],
+
+    additionalProperties: false
   };
 
 
   return {
 
-    type: "OBJECT",
+    type: "object",
 
     properties: {
 
       easy: {
 
-        type: "ARRAY",
+        type: "array",
 
         minItems: 10,
         maxItems: 10,
@@ -286,7 +288,7 @@ function schema() {
 
       medium: {
 
-        type: "ARRAY",
+        type: "array",
 
         minItems: 10,
         maxItems: 10,
@@ -298,7 +300,9 @@ function schema() {
     required: [
       "easy",
       "medium"
-    ]
+    ],
+
+    additionalProperties: false
   };
 }
 
@@ -487,6 +491,19 @@ function validateResult(data) {
 
 
 // =========================================================
+// تأخير
+// =========================================================
+
+function sleep(ms) {
+
+  return new Promise(
+    resolve =>
+      setTimeout(resolve, ms)
+  );
+}
+
+
+// =========================================================
 // الاتصال بـ Gemini
 // =========================================================
 
@@ -525,173 +542,288 @@ async function callGemini(
 
     generationConfig: {
 
-      responseMimeType:
-        "application/json",
+      responseFormat: {
 
-      responseSchema:
-        schema(),
+        text: {
+
+          mimeType:
+            "application/json",
+
+          schema:
+            schema()
+        }
+      },
+
 
       maxOutputTokens:
-        12000
+        16000
     }
   };
 
 
   // ======================================================
-  // طلب واحد فقط إلى Gemini
+  // محاولتان إضافيتان في حالة 429
   // ======================================================
 
-  let response =
-    await fetch(
-      url,
-      {
-        method: "POST",
-
-        headers: {
-
-          "Content-Type":
-            "application/json",
-
-          "x-goog-api-key":
-            env.GEMINI_API_KEY
-        },
-
-        body:
-          JSON.stringify(body)
-      }
-    );
+  const MAX_ATTEMPTS = 3;
 
 
-  let text =
-    await response.text();
-
-
-  // ======================================================
-  // معالجة 429
-  // ======================================================
-
-  if (
-    response.status === 429
+  for (
+    let attempt = 1;
+    attempt <= MAX_ATTEMPTS;
+    attempt++
   ) {
 
-    throw new Error(
-      "Gemini مشغول أو تم تجاوز حد الطلبات مؤقتًا. حاول مرة أخرى بعد قليل."
-    );
-  }
-
-
-  // ======================================================
-  // أي خطأ من Gemini
-  // ======================================================
-
-  if (!response.ok) {
-
-    let errorMessage =
-      `Gemini API HTTP ${response.status}`;
+    let response;
 
 
     try {
 
-      const errorData =
-        JSON.parse(text);
+      response =
+        await fetch(
+          url,
+          {
+            method: "POST",
+
+            headers: {
+
+              "Content-Type":
+                "application/json",
+
+              "x-goog-api-key":
+                env.GEMINI_API_KEY
+            },
+
+            body:
+              JSON.stringify(body)
+          }
+        );
+
+    } catch (networkError) {
+
+      throw new Error(
+        `تعذر الاتصال بـ Gemini: ${networkError?.message || networkError}`
+      );
+    }
+
+
+    const text =
+      await response.text();
+
+
+    // ====================================================
+    // 429
+    // ====================================================
+
+    if (
+      response.status === 429
+    ) {
+
+      if (
+        attempt < MAX_ATTEMPTS
+      ) {
+
+        await sleep(
+          attempt * 2000
+        );
+
+        continue;
+      }
+
+
+      let message =
+        "تم تجاوز حد طلبات Gemini.";
+
+
+      try {
+
+        const data =
+          JSON.parse(text);
+
+
+        if (
+          data?.error?.message
+        ) {
+
+          message =
+            data.error.message;
+        }
+
+      } catch (_) {}
+
+
+      throw new Error(
+        `Gemini 429: ${message}`
+      );
+    }
+
+
+    // ====================================================
+    // أخطاء HTTP
+    // ====================================================
+
+    if (!response.ok) {
+
+      let errorMessage =
+        `Gemini API HTTP ${response.status}`;
+
+
+      try {
+
+        const errorData =
+          JSON.parse(text);
+
+
+        if (
+          errorData?.error?.message
+        ) {
+
+          errorMessage =
+            errorData.error.message;
+        }
+
+      } catch (_) {}
 
 
       if (
-        errorData?.error?.message
+        response.status === 400
       ) {
 
-        errorMessage =
-          errorData.error.message;
+        throw new Error(
+          `Gemini 400: ${errorMessage}`
+        );
       }
 
-    } catch (_) {
-      // تجاهل JSON غير الصالح
+
+      if (
+        response.status === 401 ||
+        response.status === 403
+      ) {
+
+        throw new Error(
+          `Gemini ${response.status}: مفتاح Gemini غير صالح أو ليس لديه صلاحية استخدام API. ${errorMessage}`
+        );
+      }
+
+
+      throw new Error(
+        errorMessage
+      );
     }
+
+
+    // ====================================================
+    // قراءة استجابة Gemini
+    // ====================================================
+
+    let result;
+
+
+    try {
+
+      result =
+        JSON.parse(text);
+
+    } catch (_) {
+
+      throw new Error(
+        "Gemini أعاد استجابة غير صالحة."
+      );
+    }
+
+
+    // ====================================================
+    // فحص candidates
+    // ====================================================
+
+    const candidate =
+      result?.candidates?.[0];
+
+
+    if (!candidate) {
+
+      const blockReason =
+        result?.promptFeedback?.blockReason;
+
+
+      if (blockReason) {
+
+        throw new Error(
+          `تم رفض طلب Gemini. السبب: ${blockReason}`
+        );
+      }
+
+
+      throw new Error(
+        "Gemini لم يُرجع نتيجة."
+      );
+    }
+
+
+    // ====================================================
+    // فحص سبب انتهاء التوليد
+    // ====================================================
+
+    const finishReason =
+      candidate?.finishReason;
 
 
     if (
-      response.status === 401 ||
-      response.status === 403
+      finishReason &&
+      finishReason !== "STOP"
     ) {
 
       throw new Error(
-        "مفتاح Gemini غير صالح أو ليس لديه صلاحية استخدام API."
+        `Gemini أنهى التوليد بسبب: ${finishReason}`
       );
     }
 
 
-    throw new Error(
-      errorMessage
-    );
-  }
+    // ====================================================
+    // استخراج النص
+    // ====================================================
+
+    const parts =
+      candidate?.content?.parts || [];
 
 
-  // ======================================================
-  // قراءة استجابة Gemini
-  // ======================================================
-
-  let result;
-
-
-  try {
-
-    result =
-      JSON.parse(text);
-
-  } catch (_) {
-
-    throw new Error(
-      "Gemini أعاد استجابة غير صالحة."
-    );
-  }
+    const output =
+      parts
+        .map(
+          part =>
+            part?.text || ""
+        )
+        .join("");
 
 
-  const candidate =
-    result?.candidates?.[0];
-
-
-  if (!candidate) {
-
-    const blockReason =
-      result?.promptFeedback?.blockReason;
-
-
-    if (blockReason) {
+    if (!output) {
 
       throw new Error(
-        `تم رفض طلب Gemini. السبب: ${blockReason}`
+        "Gemini لم يُرجع محتوى."
       );
     }
 
 
-    throw new Error(
-      "Gemini لم يُرجع نتيجة."
-    );
+    // ====================================================
+    // تحويل JSON
+    // ====================================================
+
+    try {
+
+      return JSON.parse(output);
+
+    } catch (_) {
+
+      throw new Error(
+        "Gemini أعاد JSON غير صالح."
+      );
+    }
   }
 
 
-  const output =
-    candidate?.content?.parts?.[0]?.text;
-
-
-  if (!output) {
-
-    throw new Error(
-      "Gemini لم يُرجع محتوى."
-    );
-  }
-
-
-  try {
-
-    return JSON.parse(output);
-
-  } catch (_) {
-
-    throw new Error(
-      "Gemini أعاد JSON غير صالح."
-    );
-  }
+  throw new Error(
+    "فشل الاتصال بـ Gemini."
+  );
 }
 
 
@@ -740,6 +872,8 @@ export default {
 
       return jsonResponse(
         {
+          ok: false,
+
           error:
             "Not found"
         },
@@ -780,12 +914,12 @@ export default {
 
       } catch (_) {
 
-        // لا مشكلة
+        // لا نحتاج بيانات من الموقع
       }
 
 
       // ==================================================
-      // Gemini ينشئ المستويين معًا
+      // إنشاء الأسئلة
       // ==================================================
 
       const prompt =
@@ -836,7 +970,7 @@ export default {
 
 
       // ==================================================
-      // إرسال المستويين معًا إلى الموقع
+      // إرسال النتيجة
       // ==================================================
 
       return jsonResponse(
@@ -858,6 +992,11 @@ export default {
         error
       );
 
+
+      // ==================================================
+      // مهم جدًا:
+      // نرسل الخطأ الحقيقي للموقع
+      // ==================================================
 
       return jsonResponse(
         {
