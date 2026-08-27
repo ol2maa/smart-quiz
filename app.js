@@ -3,40 +3,92 @@
 // =========================================================
 //
 // نسخة GitHub Pages
+//
+// Worker يرجع:
+// 10 أسئلة سهل
+// 10 أسئلة متوسط
+//
+// في طلب Gemini واحد فقط.
 // =========================================================
 
-const API_BASE_URL = "https://brain-quiz.kaka10906.workers.dev";
+
+const API_BASE_URL =
+  "https://brain-quiz.kaka10906.workers.dev";
+
 
 const QUESTIONS_PER_LEVEL = 10;
 const POINTS_PER_QUESTION = 10;
 
+
 const LEVELS = [
-  { name: "سهل", emoji: "🟢", difficulty: "سهل" },
-  { name: "متوسط", emoji: "🟡", difficulty: "متوسط" },
+  {
+    name: "سهل",
+    emoji: "🟢",
+    difficulty: "سهل"
+  },
+
+  {
+    name: "متوسط",
+    emoji: "🟡",
+    difficulty: "متوسط"
+  }
 ];
-
-let questions = [];
-let usedQuestions = [];
-let currentLevel = 0;
-let currentQuestionIndex = 0;
-let totalScore = 0;
-let levelScore = 0;
-let gameLoading = false;
-let gameFinished = false;
-
-let answerButtons = [...document.querySelectorAll(".answer")];
-
-const levelLabel = document.getElementById("levelLabel");
-const progressLabel = document.getElementById("progressLabel");
-const questionLabel = document.getElementById("questionLabel");
-const resultLabel = document.getElementById("resultLabel");
-const scoreLabel = document.getElementById("scoreLabel");
-const startBtn = document.getElementById("startBtn");
-const closeBtn = document.getElementById("closeBtn");
 
 
 // =========================================================
-// إخفاء الإجابات فور فتح الصفحة
+// حالة اللعبة
+// =========================================================
+
+let questions = [];
+
+let allLevelQuestions = {
+  easy: [],
+  medium: []
+};
+
+let usedQuestions = [];
+
+let currentLevel = 0;
+let currentQuestionIndex = 0;
+
+let totalScore = 0;
+let levelScore = 0;
+
+let gameLoading = false;
+let gameFinished = false;
+
+
+// =========================================================
+// عناصر الصفحة
+// =========================================================
+
+let answerButtons =
+  [...document.querySelectorAll(".answer")];
+
+const levelLabel =
+  document.getElementById("levelLabel");
+
+const progressLabel =
+  document.getElementById("progressLabel");
+
+const questionLabel =
+  document.getElementById("questionLabel");
+
+const resultLabel =
+  document.getElementById("resultLabel");
+
+const scoreLabel =
+  document.getElementById("scoreLabel");
+
+const startBtn =
+  document.getElementById("startBtn");
+
+const closeBtn =
+  document.getElementById("closeBtn");
+
+
+// =========================================================
+// إخفاء الإجابات عند فتح الصفحة
 // =========================================================
 
 setAnswersVisible(false);
@@ -47,6 +99,7 @@ setAnswersVisible(false);
 // =========================================================
 
 function normalizeText(text) {
+
   return String(text ?? "")
     .trim()
     .toLowerCase()
@@ -54,229 +107,608 @@ function normalizeText(text) {
 }
 
 
+// =========================================================
+// إظهار / إخفاء الإجابات
+// =========================================================
+
 function setAnswersVisible(visible) {
-  for (const button of answerButtons) {
-    button.classList.toggle("hidden", !visible);
+
+  for (
+    const button
+    of answerButtons
+  ) {
+
+    button.classList.toggle(
+      "hidden",
+      !visible
+    );
   }
 }
 
 
+// =========================================================
+// تفعيل / تعطيل الإجابات
+// =========================================================
+
 function setAnswersEnabled(enabled) {
-  for (const button of answerButtons) {
+
+  for (
+    const button
+    of answerButtons
+  ) {
+
     button.disabled = !enabled;
   }
 }
 
 
+// =========================================================
+// تأخير
+// =========================================================
+
 function sleep(ms) {
-  return new Promise(resolve => setTimeout(resolve, ms));
-}
 
-
-function showRetryMessage(seconds) {
-  if (!gameLoading) return;
-
-  progressLabel.textContent =
-    `الخدمة مشغولة، إعادة المحاولة بعد ${seconds} ثوانٍ...`;
-
-  questionLabel.textContent =
-    "⏳ جارٍ تجهيز الأسئلة...\n\nنحاول الاتصال مرة أخرى تلقائيًا";
+  return new Promise(
+    resolve =>
+      setTimeout(resolve, ms)
+  );
 }
 
 
 // =========================================================
-// الاتصال بالخادم
+// الاتصال بالـ Worker
+// =========================================================
+//
+// مهم:
+// Worker الجديد يستخدم:
+// POST /api/questions
+//
+// ويرجع:
+// {
+//   ok: true,
+//   easy: [...],
+//   medium: [...]
+// }
 // =========================================================
 
-async function fetchQuestions(level) {
+async function fetchAllQuestions() {
 
   if (!API_BASE_URL) {
+
     throw new Error(
-      "لم يتم إعداد رابط خادم Gemini بعد.\n\n" +
-      "ضع رابط الخادم في API_BASE_URL داخل app.js."
+      "لم يتم إعداد رابط خادم Gemini."
     );
   }
 
-  const response = await fetch(
-    `${API_BASE_URL.replace(/\/$/, "")}/generate`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        level: LEVELS[level],
-        previousQuestions: usedQuestions.map(q => q.question)
-      })
-    }
-  );
 
-  const text = await response.text();
+  const endpoint =
+    `${API_BASE_URL.replace(/\/$/, "")}/api/questions`;
+
+
+  let response;
+
+
+  try {
+
+    response =
+      await fetch(
+        endpoint,
+        {
+          method: "POST",
+
+          headers: {
+            "Content-Type":
+              "application/json"
+          },
+
+          body: JSON.stringify({})
+        }
+      );
+
+  } catch (error) {
+
+    throw new Error(
+      "تعذر الاتصال بالخادم.\n\n" +
+      "تأكد من اتصال الإنترنت ورابط Cloudflare Worker."
+    );
+  }
+
+
+  const text =
+    await response.text();
+
 
   let data = {};
 
+
   try {
-    data = JSON.parse(text);
-  } catch (_) {}
 
-  if (!response.ok) {
-    const message = data.error || `HTTP ${response.status}`;
+    data =
+      JSON.parse(text);
 
-    const err = new Error(message);
-    err.status = response.status;
+  } catch (_) {
 
-    throw err;
-  }
-
-  if (!Array.isArray(data.questions)) {
     throw new Error(
-      "الخادم لم يُرجع قائمة أسئلة صحيحة."
+      `الخادم أعاد استجابة غير مفهومة.\n\nHTTP ${response.status}`
     );
   }
 
-  return data.questions;
+
+  // ======================================================
+  // خطأ من Worker
+  // ======================================================
+
+  if (!response.ok) {
+
+    const message =
+      data?.error ||
+      `HTTP ${response.status}`;
+
+
+    const error =
+      new Error(message);
+
+
+    error.status =
+      response.status;
+
+
+    throw error;
+  }
+
+
+  // ======================================================
+  // Worker نفسه يقول إن الطلب فشل
+  // ======================================================
+
+  if (
+    data?.ok === false
+  ) {
+
+    throw new Error(
+      data?.error ||
+      "الخادم رفض الطلب."
+    );
+  }
+
+
+  // ======================================================
+  // التحقق من easy
+  // ======================================================
+
+  if (
+    !Array.isArray(data.easy)
+  ) {
+
+    throw new Error(
+      "الخادم لم يُرجع أسئلة المستوى السهل."
+    );
+  }
+
+
+  // ======================================================
+  // التحقق من medium
+  // ======================================================
+
+  if (
+    !Array.isArray(data.medium)
+  ) {
+
+    throw new Error(
+      "الخادم لم يُرجع أسئلة المستوى المتوسط."
+    );
+  }
+
+
+  return {
+    easy: data.easy,
+    medium: data.medium
+  };
 }
 
 
 // =========================================================
-// التحقق من الأسئلة
+// التحقق من أسئلة مستوى واحد
 // =========================================================
 
-function validateQuestions(data) {
+function validateQuestions(
+  data,
+  levelName
+) {
 
   if (
     !Array.isArray(data) ||
     data.length !== QUESTIONS_PER_LEVEL
   ) {
+
     return [
       false,
-      "يجب أن يصل 10 أسئلة بالضبط."
+
+      `يجب أن يصل 10 أسئلة بالضبط للمستوى ${levelName}.`
     ];
   }
 
-  const seen = new Set();
 
-  for (let i = 0; i < data.length; i++) {
+  const seen =
+    new Set();
 
-    const item = data[i];
+
+  for (
+    let i = 0;
+    i < data.length;
+    i++
+  ) {
+
+    const item =
+      data[i];
+
+
+    // ====================================================
+    // السؤال
+    // ====================================================
 
     if (
       !item ||
-      typeof item.question !== "string"
+      typeof item.question !== "string" ||
+      !item.question.trim()
     ) {
+
       return [
         false,
-        `السؤال ${i + 1} غير صالح.`
+
+        `السؤال ${levelName} رقم ${i + 1} غير صالح.`
       ];
     }
+
+
+    // ====================================================
+    // الإجابات
+    // ====================================================
 
     if (
       !Array.isArray(item.answers) ||
       item.answers.length !== 4
     ) {
+
       return [
         false,
-        `السؤال ${i + 1} يجب أن يحتوي على 4 إجابات.`
+
+        `السؤال ${levelName} رقم ${i + 1} يجب أن يحتوي على 4 إجابات.`
       ];
     }
 
-    const answers = item.answers.map(String);
 
-    const unique = new Set(
-      answers.map(normalizeText)
-    );
+    const answers =
+      item.answers.map(String);
 
-    if (unique.size !== 4) {
+
+    // ====================================================
+    // الإجابات المكررة
+    // ====================================================
+
+    const unique =
+      new Set(
+        answers.map(normalizeText)
+      );
+
+
+    if (
+      unique.size !== 4
+    ) {
+
       return [
         false,
-        `السؤال ${i + 1} يحتوي إجابات مكررة.`
+
+        `السؤال ${levelName} رقم ${i + 1} يحتوي إجابات مكررة.`
       ];
     }
+
+
+    // ====================================================
+    // الإجابة الصحيحة
+    // ====================================================
 
     if (
       typeof item.correct_answer !== "string"
     ) {
+
       return [
         false,
-        `السؤال ${i + 1} لا يحتوي إجابة صحيحة.`
+
+        `السؤال ${levelName} رقم ${i + 1} لا يحتوي إجابة صحيحة.`
       ];
     }
+
+
+    const correctExists =
+      answers.some(
+        answer =>
+          normalizeText(answer) ===
+          normalizeText(
+            item.correct_answer
+          )
+      );
+
+
+    if (!correctExists) {
+
+      return [
+        false,
+
+        `الإجابة الصحيحة للسؤال ${levelName} رقم ${i + 1} غير موجودة ضمن الإجابات.`
+      ];
+    }
+
+
+    // ====================================================
+    // منع تكرار السؤال
+    // ====================================================
+
+    const key =
+      normalizeText(
+        item.question
+      );
+
 
     if (
-      !answers.some(
-        a =>
-          normalizeText(a) ===
-          normalizeText(item.correct_answer)
-      )
+      seen.has(key)
     ) {
+
       return [
         false,
-        `الإجابة الصحيحة للسؤال ${i + 1} غير موجودة ضمن الإجابات.`
+
+        `يوجد سؤال مكرر داخل المستوى ${levelName}.`
       ];
     }
 
-    const key = normalizeText(item.question);
-
-    if (seen.has(key)) {
-      return [
-        false,
-        "يوجد سؤال مكرر داخل المجموعة الجديدة."
-      ];
-    }
 
     seen.add(key);
   }
 
-  return [true, ""];
+
+  return [
+    true,
+    ""
+  ];
 }
 
 
 // =========================================================
-// تحميل أسئلة المستوى
+// التحقق من المستويين معًا
 // =========================================================
 
-async function loadLevelQuestions(level) {
+function validateAllQuestions(data) {
 
-  let lastError = "";
+  if (!data) {
 
-  for (let attempt = 0; attempt < 2; attempt++) {
+    return [
+      false,
+      "لم تصل بيانات الأسئلة."
+    ];
+  }
+
+
+  // ======================================================
+  // السهل
+  // ======================================================
+
+  const easyResult =
+    validateQuestions(
+      data.easy,
+      "السهل"
+    );
+
+
+  if (!easyResult[0]) {
+
+    return easyResult;
+  }
+
+
+  // ======================================================
+  // المتوسط
+  // ======================================================
+
+  const mediumResult =
+    validateQuestions(
+      data.medium,
+      "المتوسط"
+    );
+
+
+  if (!mediumResult[0]) {
+
+    return mediumResult;
+  }
+
+
+  // ======================================================
+  // منع تكرار سؤال بين المستويين
+  // ======================================================
+
+  const allSeen =
+    new Set();
+
+
+  const allQuestions = [
+    ...data.easy,
+    ...data.medium
+  ];
+
+
+  for (
+    const item
+    of allQuestions
+  ) {
+
+    const key =
+      normalizeText(
+        item.question
+      );
+
+
+    if (
+      allSeen.has(key)
+    ) {
+
+      return [
+        false,
+
+        "Gemini أنشأ سؤالًا مكررًا بين المستوى السهل والمتوسط."
+      ];
+    }
+
+
+    allSeen.add(key);
+  }
+
+
+  return [
+    true,
+    ""
+  ];
+}
+
+
+// =========================================================
+// خلط الأسئلة والإجابات
+// =========================================================
+
+function shuffleQuestions(data) {
+
+  const easy =
+    [...data.easy];
+
+
+  const medium =
+    [...data.medium];
+
+
+  // ======================================================
+  // خلط الأسئلة
+  // ======================================================
+
+  easy.sort(
+    () =>
+      Math.random() - 0.5
+  );
+
+
+  medium.sort(
+    () =>
+      Math.random() - 0.5
+  );
+
+
+  // ======================================================
+  // خلط الإجابات
+  // ======================================================
+
+  for (
+    const item
+    of easy
+  ) {
+
+    item.answers.sort(
+      () =>
+        Math.random() - 0.5
+    );
+  }
+
+
+  for (
+    const item
+    of medium
+  ) {
+
+    item.answers.sort(
+      () =>
+        Math.random() - 0.5
+    );
+  }
+
+
+  return {
+    easy,
+    medium
+  };
+}
+
+
+// =========================================================
+// تحميل الـ20 سؤال
+// =========================================================
+//
+// مهم جدًا:
+// يتم استدعاء Gemini مرة واحدة فقط.
+//
+// بعد ذلك المستوى المتوسط موجود مسبقًا.
+// =========================================================
+
+async function loadAllLevelQuestions() {
+
+  let lastError =
+    "حدث خطأ غير معروف.";
+
+
+  // محاولتان
+  for (
+    let attempt = 0;
+    attempt < 2;
+    attempt++
+  ) {
 
     try {
 
-      const data = await fetchQuestions(level);
+      const data =
+        await fetchAllQuestions();
 
-      const [valid, error] =
-        validateQuestions(data);
+
+      const [
+        valid,
+        error
+      ] =
+        validateAllQuestions(
+          data
+        );
+
 
       if (!valid) {
-        lastError = error;
+
+        lastError =
+          error;
+
         continue;
       }
 
-      data.sort(
-        () => Math.random() - 0.5
-      );
 
-      for (const item of data) {
-        item.answers.sort(
-          () => Math.random() - 0.5
-        );
-      }
-
-      return [true, data];
+      return [
+        true,
+        shuffleQuestions(data)
+      ];
 
     } catch (error) {
 
       lastError =
-        error.message || String(error);
+        error?.message ||
+        String(error);
 
-      if (attempt === 0) {
-        await sleep(1000);
+
+      // إعادة محاولة واحدة
+      if (
+        attempt === 0
+      ) {
+
+        await sleep(1500);
       }
     }
   }
 
-  return [false, lastError];
+
+  return [
+    false,
+    lastError
+  ];
 }
 
 
@@ -287,59 +719,127 @@ async function loadLevelQuestions(level) {
 async function startGame() {
 
   currentLevel = 0;
+
   currentQuestionIndex = 0;
+
   totalScore = 0;
+
   levelScore = 0;
 
+
   questions = [];
+
   usedQuestions = [];
 
+
+  allLevelQuestions = {
+    easy: [],
+    medium: []
+  };
+
+
   gameFinished = false;
+
   gameLoading = true;
 
-  startBtn.disabled = true;
-  startBtn.classList.add("hidden");
 
-  scoreLabel.textContent = "النقاط: 0";
+  startBtn.disabled = true;
+
+  startBtn.classList.add(
+    "hidden"
+  );
+
+
+  scoreLabel.textContent =
+    "النقاط: 0";
+
 
   levelLabel.textContent =
     "🟢 المستوى السهل";
 
+
   progressLabel.textContent =
-    "جاري تحميل 10 أسئلة...";
+    "جاري تحميل 20 سؤالًا...";
+
 
   questionLabel.textContent =
-    "⏳ جاري إنشاء أسئلة المستوى السهل...";
+    "⏳ جاري إنشاء 10 أسئلة سهلة و10 أسئلة متوسطة...";
 
-  resultLabel.textContent = "";
-  resultLabel.className = "result";
+
+  resultLabel.textContent =
+    "";
+
+  resultLabel.className =
+    "result";
+
 
   setAnswersVisible(false);
 
-  const [success, data] =
-    await loadLevelQuestions(currentLevel);
+
+  // ======================================================
+  // تحميل المستويين مرة واحدة
+  // ======================================================
+
+  const [
+    success,
+    data
+  ] =
+    await loadAllLevelQuestions();
+
 
   gameLoading = false;
+
+
+  // ======================================================
+  // فشل
+  // ======================================================
 
   if (!success) {
 
     questionLabel.textContent =
       "❌ لم يتم تحميل الأسئلة";
 
-    resultLabel.textContent = data;
-    resultLabel.className = "result error";
+
+    // إظهار الخطأ الحقيقي
+    resultLabel.textContent =
+      data;
+
+
+    resultLabel.className =
+      "result error";
+
 
     startBtn.textContent =
       "🔄 المحاولة مرة أخرى";
 
-    startBtn.classList.remove("hidden");
+
+    startBtn.classList.remove(
+      "hidden"
+    );
+
+
     startBtn.disabled = false;
+
 
     return;
   }
 
-  usedQuestions.push(...data);
-  questions = data;
+
+  // ======================================================
+  // حفظ المستويين
+  // ======================================================
+
+  allLevelQuestions =
+    data;
+
+
+  questions =
+    allLevelQuestions.easy;
+
+
+  usedQuestions =
+    [...questions];
+
 
   showQuestion();
 }
@@ -355,35 +855,57 @@ function showQuestion() {
     currentQuestionIndex >=
     questions.length
   ) {
+
     finishLevel();
+
     return;
   }
 
+
   const item =
-    questions[currentQuestionIndex];
+    questions[
+      currentQuestionIndex
+    ];
+
 
   const level =
-    LEVELS[currentLevel];
+    LEVELS[
+      currentLevel
+    ];
+
 
   levelLabel.textContent =
     `${level.emoji} المستوى ${level.name}`;
 
+
   progressLabel.textContent =
     `السؤال ${currentQuestionIndex + 1} من ${QUESTIONS_PER_LEVEL}`;
+
 
   questionLabel.textContent =
     item.question;
 
-  resultLabel.textContent = "";
-  resultLabel.className = "result";
 
-  for (let i = 0; i < 4; i++) {
+  resultLabel.textContent =
+    "";
+
+  resultLabel.className =
+    "result";
+
+
+  for (
+    let i = 0;
+    i < 4;
+    i++
+  ) {
 
     answerButtons[i].textContent =
       item.answers[i];
   }
 
+
   setAnswersVisible(true);
+
   setAnswersEnabled(true);
 }
 
@@ -396,63 +918,108 @@ function answerPressed(button) {
 
   if (
     gameLoading ||
-    button.disabled
+    button.disabled ||
+    gameFinished
   ) {
+
     return;
   }
 
+
   setAnswersEnabled(false);
 
+
   const item =
-    questions[currentQuestionIndex];
+    questions[
+      currentQuestionIndex
+    ];
+
 
   const correct =
     item.correct_answer;
 
+
+  // ======================================================
+  // إجابة صحيحة
+  // ======================================================
+
   if (
-    normalizeText(button.textContent) ===
-    normalizeText(correct)
+    normalizeText(
+      button.textContent
+    ) ===
+    normalizeText(
+      correct
+    )
   ) {
 
-    totalScore += POINTS_PER_QUESTION;
-    levelScore += POINTS_PER_QUESTION;
+    totalScore +=
+      POINTS_PER_QUESTION;
+
+
+    levelScore +=
+      POINTS_PER_QUESTION;
+
 
     button.style.background =
       "#4CAF50";
 
+
     button.style.color =
       "#fff";
 
+
     resultLabel.textContent =
       "✅ إجابة صحيحة!";
+  }
 
-  } else {
+
+  // ======================================================
+  // إجابة خاطئة
+  // ======================================================
+
+  else {
 
     button.style.background =
       "#F44336";
 
+
     button.style.color =
       "#fff";
+
 
     resultLabel.textContent =
       `❌ إجابة خاطئة\nالإجابة الصحيحة: ${correct}`;
   }
 
+
   scoreLabel.textContent =
     `النقاط: ${totalScore}`;
 
+
   currentQuestionIndex++;
 
-  setTimeout(() => {
 
-    for (const b of answerButtons) {
-      b.style.background = "";
-      b.style.color = "";
-    }
+  setTimeout(
+    () => {
 
-    showQuestion();
+      for (
+        const b
+        of answerButtons
+      ) {
 
-  }, 1500);
+        b.style.background =
+          "";
+
+        b.style.color =
+          "";
+      }
+
+
+      showQuestion();
+
+    },
+    1500
+  );
 }
 
 
@@ -468,24 +1035,39 @@ function finishLevel() {
   ) {
 
     const completed =
-      LEVELS[currentLevel];
+      LEVELS[
+        currentLevel
+      ];
+
 
     const next =
-      LEVELS[currentLevel + 1];
+      LEVELS[
+        currentLevel + 1
+      ];
+
 
     levelLabel.textContent =
       `🎉 انتهى المستوى ${completed.name}`;
 
+
     progressLabel.textContent =
       `نتيجة المستوى: ${levelScore} / 100`;
+
 
     questionLabel.textContent =
       `ممتاز!\n\n${next.emoji} المستوى ${next.name}\n\nاستعد لـ 10 أسئلة جديدة`;
 
+
     resultLabel.textContent =
       `مجموع نقاطك حتى الآن: ${totalScore}`;
 
+
+    resultLabel.className =
+      "result";
+
+
     setAnswersVisible(false);
+
 
     setTimeout(
       startNextLevel,
@@ -500,59 +1082,115 @@ function finishLevel() {
 
 
 // =========================================================
-// بدء المستوى التالي
+// بدء المستوى المتوسط
+// =========================================================
+//
+// مهم جدًا:
+// لا يوجد أي اتصال بـ Gemini هنا.
+//
+// الأسئلة المتوسطة تم تحميلها مسبقًا.
 // =========================================================
 
 async function startNextLevel() {
 
   currentLevel++;
+
   currentQuestionIndex = 0;
+
   levelScore = 0;
-  gameLoading = true;
 
-  const level =
-    LEVELS[currentLevel];
 
-  levelLabel.textContent =
-    `${level.emoji} المستوى ${level.name}`;
+  // ======================================================
+  // التأكد من وجود أسئلة المستوى المتوسط
+  // ======================================================
 
-  progressLabel.textContent =
-    "جاري تحميل 10 أسئلة...";
+  if (
+    !Array.isArray(
+      allLevelQuestions.medium
+    ) ||
+    allLevelQuestions.medium.length !==
+      QUESTIONS_PER_LEVEL
+  ) {
 
-  questionLabel.textContent =
-    `⏳ جاري إنشاء أسئلة المستوى ${level.name}...`;
+    gameLoading = false;
 
-  resultLabel.textContent = "";
-
-  setAnswersVisible(false);
-
-  const [success, data] =
-    await loadLevelQuestions(currentLevel);
-
-  gameLoading = false;
-
-  if (!success) {
 
     questionLabel.textContent =
-      "❌ لم يتم تحميل المستوى";
+      "❌ لم يتم العثور على أسئلة المستوى المتوسط.";
+
 
     resultLabel.textContent =
-      data;
+      "الأسئلة المتوسطة لم تصل من الخادم.";
+
 
     resultLabel.className =
       "result error";
 
+
     startBtn.textContent =
       "🔄 إعادة المحاولة";
 
-    startBtn.classList.remove("hidden");
+
+    startBtn.classList.remove(
+      "hidden"
+    );
+
+
     startBtn.disabled = false;
+
 
     return;
   }
 
-  usedQuestions.push(...data);
-  questions = data;
+
+  // ======================================================
+  // استخدام الأسئلة الموجودة مسبقًا
+  // ======================================================
+
+  questions =
+    allLevelQuestions.medium;
+
+
+  usedQuestions.push(
+    ...questions
+  );
+
+
+  const level =
+    LEVELS[
+      currentLevel
+    ];
+
+
+  levelLabel.textContent =
+    `${level.emoji} المستوى ${level.name}`;
+
+
+  progressLabel.textContent =
+    "السؤال 1 من 10";
+
+
+  questionLabel.textContent =
+    "استعد...";
+
+
+  resultLabel.textContent =
+    "";
+
+
+  resultLabel.className =
+    "result";
+
+
+  setAnswersVisible(false);
+
+
+  // ======================================================
+  // مهلة قصيرة للانتقال
+  // ======================================================
+
+  await sleep(500);
+
 
   showQuestion();
 }
@@ -566,27 +1204,43 @@ function finishGame() {
 
   gameFinished = true;
 
+
   levelLabel.textContent =
     "🏆 انتهت المسابقة";
+
 
   progressLabel.textContent =
     `أكملت ${LEVELS.length * QUESTIONS_PER_LEVEL} سؤالًا`;
 
+
   questionLabel.textContent =
     "نتيجتك النهائية";
+
 
   resultLabel.textContent =
     `🎯 ${totalScore} من ${LEVELS.length * QUESTIONS_PER_LEVEL * POINTS_PER_QUESTION} نقطة`;
 
+
+  resultLabel.className =
+    "result";
+
+
   scoreLabel.textContent =
     `المجموع: ${totalScore}`;
 
+
   setAnswersVisible(false);
+
 
   startBtn.textContent =
     "🔄 مسابقة جديدة";
 
-  startBtn.classList.remove("hidden");
+
+  startBtn.classList.remove(
+    "hidden"
+  );
+
+
   startBtn.disabled = false;
 }
 
@@ -595,7 +1249,10 @@ function finishGame() {
 // أزرار الإجابات
 // =========================================================
 
-for (const button of answerButtons) {
+for (
+  const button
+  of answerButtons
+) {
 
   button.addEventListener(
     "click",
@@ -623,40 +1280,67 @@ closeBtn.addEventListener(
   () => {
 
     questions = [];
+
     usedQuestions = [];
 
+
+    allLevelQuestions = {
+      easy: [],
+      medium: []
+    };
+
+
     currentLevel = 0;
+
     currentQuestionIndex = 0;
 
+
     totalScore = 0;
+
     levelScore = 0;
 
+
     gameLoading = false;
+
     gameFinished = false;
+
 
     levelLabel.textContent =
       "🟢 المستوى السهل";
 
+
     progressLabel.textContent =
       "10 أسئلة";
+
 
     questionLabel.textContent =
       "اضغط «ابدأ المسابقة»";
 
-    resultLabel.textContent = "";
+
+    resultLabel.textContent =
+      "";
+
 
     resultLabel.className =
       "result";
 
+
     scoreLabel.textContent =
       "النقاط: 0";
 
+
     setAnswersVisible(false);
+
 
     startBtn.textContent =
       "🧠 ابدأ المسابقة";
 
-    startBtn.classList.remove("hidden");
+
+    startBtn.classList.remove(
+      "hidden"
+    );
+
+
     startBtn.disabled = false;
   }
 );
